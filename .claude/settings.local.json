@@ -6,7 +6,11 @@
       "Bash(docker.exe compose:*)",
       "Bash(curl:*)",
       "Bash(docker.exe images:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(python3:*)",
+      "Bash(find:*)",
+      "Bash(ln:*)",
+      "Bash(docker exec:*)"
     ],
     "deny": [],
     "ask": []

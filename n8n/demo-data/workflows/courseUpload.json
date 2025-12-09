@@ -9,8 +9,8 @@
       "parameters": {
         "triggerTimes": [
           {
-            "hour": 3,
-            "minutes": 0
+            "hour": "={{ $env.CRON_SCHEDULE_HOUR || 3 }}",
+            "minutes": "={{ $env.CRON_SCHEDULE_MINUTE || 0 }}"
           }
         ]
       },
@@ -40,7 +40,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const stdout = ($input.first().json.stdout || '').trim();\nif (!stdout) {\n  return [];\n}\n\nreturn stdout.split('\\n')\n  .map(line => line.trim())\n  .filter(Boolean)\n  .map(course => ({ json: { courseName: course } }));"
+        "jsCode": "// Get the output from the List Courses command\nconst items = $input.all();\nif (!items || items.length === 0) {\n  return [];\n}\n\nconst stdout = (items[0].json.stdout || '').trim();\nif (!stdout) {\n  return [];\n}\n\n// Split the output by lines and create an item for each course\nconst courses = stdout.split('\\n')\n  .map(line => line.trim())\n  .filter(Boolean)\n  .map(course => ({ json: { courseName: course } }));\n\nreturn courses;"
       },
       "id": "process-list-1",
       "name": "Process Course List",
@@ -52,8 +52,8 @@
       "parameters": {
         "operation": "list",
         "returnAll": true,
-        "filters": {
-          "query": "name = '{{$json[\"courseName\"]}}.tar.gz' and '{{$env[\"GOOGLE_DRIVE_COURSES_FOLDER_ID\"]}}' in parents and trashed = false"
+        "options": {
+          "queryString": "name = '{{$json[\"courseName\"]}}.tar.gz' and '{{$env[\"GOOGLE_DRIVE_COURSES_FOLDER_ID\"]}}' in parents and trashed = false"
         }
       },
       "id": "check-drive-1",
@@ -71,9 +71,11 @@
     {
       "parameters": {
         "conditions": {
-          "booleans": [
+          "number": [
             {
-              "value1": "={{$json[\"files\"] && $json[\"files\"].length > 0}}"
+              "value1": "={{$json[\"files\"] ? $json[\"files\"].length : 0}}",
+              "operation": "larger",
+              "value2": 0
             }
           ]
         }
@@ -97,8 +99,7 @@
               "value": "Skipped (already on Drive)"
             }
           ]
-        },
-        "options": {}
+        }
       },
       "id": "set-skip-status-1",
       "name": "Set Skip Status",
@@ -108,10 +109,7 @@
     },
     {
       "parameters": {
-        "command": "=COURSE=\"{{ $json.courseName }}\"\nARCHIVE=\"/data/shared/tmp/${COURSE}.tar.gz\"\nSRC=\"/data/shared/cursos/${COURSE}\"\nmkdir -p /data/shared/tmp\nrm -f \"$ARCHIVE\"\nif [ ! -d \"$SRC\" ]; then\n  >&2 echo \"Curso não encontrado: $SRC\"\n  exit 1\nfi\ntar -czf \"$ARCHIVE\" -C \"/data/shared/cursos\" \"$COURSE\"\nprintf \"$ARCHIVE\"",
-        "options": {
-          "shell": "/bin/bash"
-        }
+        "command": "=COURSE=\"{{ $json.courseName }}\"\nARCHIVE=\"/data/shared/tmp/${COURSE}.tar.gz\"\nSRC=\"/data/shared/cursos/${COURSE}\"\nmkdir -p /data/shared/tmp\nrm -f \"$ARCHIVE\"\nif [ ! -d \"$SRC\" ]; then\n  >&2 echo \"Curso não encontrado: $SRC\"\n  exit 1\nfi\ntar -czf \"$ARCHIVE\" -C \"/data/shared/cursos\" \"$COURSE\"\nprintf \"$ARCHIVE\""
       },
       "id": "create-archive-1",
       "name": "Create Archive",
@@ -121,8 +119,7 @@
     },
     {
       "parameters": {
-        "filePath": "={{ $json.stdout.trim() }}",
-        "options": {}
+        "filePath": "={{ $json.stdout.trim() }}"
       },
       "id": "read-file-1",
       "name": "Read Archive File",
@@ -154,8 +151,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO course_uploads (course_name, drive_file_id, uploaded_at)\nVALUES ('{{ $json.courseName }}', '{{ $json.id }}', NOW())\nON CONFLICT (course_name) DO UPDATE \nSET drive_file_id = EXCLUDED.drive_file_id, uploaded_at = NOW();",
-        "options": {}
+        "query": "INSERT INTO course_uploads (course_name, drive_file_id, uploaded_at)\nVALUES ('{{ $json.courseName }}', '{{ $json.id }}', NOW())\nON CONFLICT (course_name) DO UPDATE \nSET drive_file_id = EXCLUDED.drive_file_id, uploaded_at = NOW();"
       },
       "id": "register-db-1",
       "name": "Register in Database",
@@ -171,11 +167,7 @@
     },
     {
       "parameters": {
-        "command": "rm -f \"{{$node[\"Create Archive\"].json[\"stdout\"].trim()}}\"",
-        "options": {
-          "shell": "/bin/bash",
-          "continueOnFail": true
-        }
+        "command": "rm -f \"{{$node[\"Create Archive\"].json[\"stdout\"].trim()}}\""
       },
       "id": "cleanup-archive-1",
       "name": "Cleanup Archive",

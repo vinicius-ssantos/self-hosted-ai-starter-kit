@@ -20,6 +20,9 @@ x-n8n: &service-n8n
     - N8N_ENCRYPTION_KEY
     - N8N_USER_MANAGEMENT_JWT_SECRET
     - OLLAMA_HOST=${OLLAMA_HOST:-ollama:11434}
+    - GOOGLE_DRIVE_COURSES_FOLDER_ID
+    - CRON_SCHEDULE_HOUR
+    - CRON_SCHEDULE_MINUTE
   env_file:
     - path: .env
       required: true
@@ -30,7 +33,7 @@ x-ollama: &service-ollama
   networks: ['demo']
   restart: unless-stopped
   ports:
-    - 11434:11434
+    - ${OLLAMA_PORT:-11434}:11434
   volumes:
     - ollama_storage:/root/.ollama
 
@@ -85,12 +88,12 @@ services:
     container_name: n8n
     restart: unless-stopped
     ports:
-      - 5678:5678
+      - ${N8N_PORT:-5678}:5678
     volumes:
       - n8n_storage:/home/node/.n8n
       - ./n8n/demo-data:/demo-data
-      - D:\Users\vinic\PycharmProjects\MyEdools_Impacta\FastAPI_HeroSpark_MyEdools_Impacta\downloads:/data/shared/cursos
-      - ./shared/tmp:/data/shared/tmp
+      - ${COURSES_LOCAL_PATH}:/data/shared/cursos
+      - ${COURSES_TMP_PATH:-./shared/tmp}:/data/shared/tmp
     depends_on:
       postgres:
         condition: service_healthy
@@ -104,7 +107,7 @@ services:
     networks: ['demo']
     restart: unless-stopped
     ports:
-      - 6333:6333
+      - ${QDRANT_PORT:-6333}:6333
     volumes:
       - qdrant_storage:/qdrant/storage
 
