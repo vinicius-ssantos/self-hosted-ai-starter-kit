@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker.exe compose:*)",
+      "Bash(curl:*)",
+      "Bash(docker.exe images:*)",
+      "WebSearch"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

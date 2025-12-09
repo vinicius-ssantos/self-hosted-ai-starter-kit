@@ -1,0 +1,131 @@
+{
+  "createdAt": "2025-12-08T22:30:00.000Z",
+  "updatedAt": "2025-12-08T22:30:00.000Z",
+  "id": "courseUploadWorkflow",
+  "name": "Course Upload Workflow",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger-1",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "command": "ls -1 /data/shared/cursos"
+      },
+      "id": "list-courses-1",
+      "name": "List Courses",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const stdout = ($input.first().json.stdout || '').trim();\nif (!stdout) {\n  return [];\n}\n\nconst courses = stdout.split('\\n')\n  .map(line => line.trim())\n  .filter(Boolean);\n\n// Apenas primeiros 3 cursos para teste\nreturn courses.slice(0, 3).map(course => ({ json: { courseName: course } }));"
+      },
+      "id": "process-list-1",
+      "name": "Process Course List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "command": "=COURSE=\"{{ $json.courseName }}\"\nARCHIVE=\"/data/shared/tmp/${COURSE}.tar.gz\"\nSRC=\"/data/shared/cursos/${COURSE}\"\nmkdir -p /data/shared/tmp\nrm -f \"$ARCHIVE\"\nif [ ! -d \"$SRC\" ]; then\n  >&2 echo \"Curso não encontrado: $SRC\"\n  exit 1\nfi\ntar -czf \"$ARCHIVE\" -C \"/data/shared/cursos\" \"$COURSE\"\nprintf \"$ARCHIVE\"",
+        "options": {
+          "shell": "/bin/bash"
+        }
+      },
+      "id": "create-archive-1",
+      "name": "Create Archive",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "filePath": "={{ $json.stdout.trim() }}",
+        "options": {}
+      },
+      "id": "read-file-1",
+      "name": "Read Archive File",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "binaryPropertyName": "data",
+        "additionalFields": {
+          "parentId": "={{ $env.GOOGLE_DRIVE_COURSES_FOLDER_ID }}",
+          "fileName": "={{ $json.courseName }}.tar.gz"
+        }
+      },
+      "id": "upload-drive-1",
+      "name": "Upload to Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [1340, 300],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "PLACEHOLDER",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO course_uploads (course_name, drive_file_id, uploaded_at)\nVALUES ('{{ $json.courseName }}', '{{ $json.id }}', NOW())\nON CONFLICT (course_name) DO UPDATE \nSET drive_file_id = EXCLUDED.drive_file_id, uploaded_at = NOW();",
+        "options": {}
+      },
+      "id": "register-db-1",
+      "name": "Register in Database",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1560, 300],
+      "credentials": {
+        "postgres": {
+          "id": "PLACEHOLDER",
+          "name": "Local Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{"node": "List Courses", "type": "main", "index": 0}]]
+    },
+    "List Courses": {
+      "main": [[{"node": "Process Course List", "type": "main", "index": 0}]]
+    },
+    "Process Course List": {
+      "main": [[{"node": "Create Archive", "type": "main", "index": 0}]]
+    },
+    "Create Archive": {
+      "main": [[{"node": "Read Archive File", "type": "main", "index": 0}]]
+    },
+    "Read Archive File": {
+      "main": [[{"node": "Upload to Drive", "type": "main", "index": 0}]]
+    },
+    "Upload to Drive": {
+      "main": [[{"node": "Register in Database", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "pinData": {},
+  "versionId": "course-upload-v1",
+  "triggerCount": 0,
+  "tags": []
+}

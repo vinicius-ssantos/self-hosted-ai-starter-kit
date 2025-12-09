@@ -1,9 +1,5 @@
 {
-  "createdAt": "2025-12-08T22:00:00.000Z",
-  "updatedAt": "2025-12-08T22:00:00.000Z",
-  "id": "uploadLocalCoursesWorkflow",
   "name": "Upload Local Courses to Drive",
-  "active": false,
   "nodes": [
     {
       "parameters": {
@@ -361,6 +357,7 @@
       ]
     }
   },
+  "active": false,
   "settings": {
     "executionOrder": "v1"
   },
@@ -369,7 +366,6 @@
     "templateCredsSetupCompleted": false
   },
   "pinData": {},
-  "versionId": "b21f5cf6-56a5-47c8-8ea1-cb7e10b9be1a",
-  "triggerCount": 0,
-  "tags": []
+  "id": "uploadLocalCoursesWorkflow",
+  "versionId": "b21f5cf6-56a5-47c8-8ea1-cb7e10b9be1a"
 }

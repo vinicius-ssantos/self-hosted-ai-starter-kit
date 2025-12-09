@@ -28,7 +28,8 @@ Preparar um ambiente local, baseado no template de docker compose da n8n, para:
 
 ### Automatização de upload de cursos
 1. Estrutura local:
-   - `shared/cursos` para armazenar os diretórios de cursos.
+   - Cursos localizados em: `D:\Users\vinic\PycharmProjects\MyEdools_Impacta\FastAPI_HeroSpark_MyEdools_Impacta\downloads` (226 cursos)
+   - Montado no container como: `/data/shared/cursos`
    - `shared/tmp` para gerar arquivos `.tar.gz` temporários antes do upload.
 2. Documentação detalhada (`COURSE_UPLOAD_WORKFLOW.md`) com todos os nós necessários e instruções de teste.
 3. Workflow pronto para importação: `n8n/demo-data/workflows/uploadLocalCourses.json`
@@ -40,13 +41,19 @@ Preparar um ambiente local, baseado no template de docker compose da n8n, para:
 ```
 .env / .env.example     # Podem receber o ID da pasta no Drive
 shared/
- ├─ cursos/             # Onde os cursos devem ser colocados
  └─ tmp/                # Arquivos temporários durante o upload
+docker-compose.yml      # Configurado para montar pasta de downloads
 COURSE_UPLOAD_WORKFLOW.md
 n8n/demo-data/workflows/
  ├─ srOnR8PAY3u4RSwb.json           # Workflow demo original
  └─ uploadLocalCourses.json         # Automação de backup para o Drive
 PROJECT_STATUS.md
+
+# Pasta de cursos (externa ao projeto):
+D:\Users\vinic\PycharmProjects\MyEdools_Impacta\FastAPI_HeroSpark_MyEdools_Impacta\downloads
+ ├─ 117246-power-bi-avançado-online/
+ ├─ 135435-projetos-com-software-bim-módulo-ii-online/
+ └─ ... (226 cursos no total)
 ```
 
 ## Próximos passos sugeridos

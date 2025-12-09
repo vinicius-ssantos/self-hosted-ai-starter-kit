@@ -18,7 +18,11 @@ Este guia descreve como montar no n8n um fluxo que empacota cada curso da pasta 
         );"
    ```
 
-3. **Estrutura local:** coloque cada curso dentro de `shared/cursos/<nome-do-curso>`. O n8n monta essa pasta como `/data/shared/cursos` nos nós de “Execute Command” e “Read Binary Files”.
+3. **Estrutura local:**
+   - Os cursos estão em `D:\Users\vinic\PycharmProjects\MyEdools_Impacta\FastAPI_HeroSpark_MyEdools_Impacta\downloads`
+   - O `docker-compose.yml` monta essa pasta diretamente como `/data/shared/cursos` no container n8n
+   - Atualmente há **226 cursos** prontos para upload
+   - Arquivos temporários são criados em `shared/tmp` (montado como `/data/shared/tmp`)
 
 ## Nós e conexões
 
@@ -122,12 +126,18 @@ Monte o workflow seguindo a ordem abaixo (posicione os nós para ficar mais fác
 
 ## Testes
 
-1. Desative o `Cron` e troque temporariamente por um `Manual Trigger` para validar com poucos cursos.
-2. Coloque 1–2 cursos de teste em `shared/cursos`. Execute o workflow e confirme:
-   - Arquivo `.tar.gz` criado em `shared/tmp`.
-   - Arquivo enviado ao Drive na pasta configurada.
-   - Registro inserido em `course_uploads`.
-3. Reexecute: os itens pulados devem aparecer com status “já está no Postgres/Drive”.
+1. **IMPORTANTE:** Antes de testar, reinicie o container n8n para aplicar as mudanças no docker-compose.yml:
+   ```bash
+   docker compose restart n8n
+   ```
+
+2. Desative o `Cron` e troque temporariamente por um `Manual Trigger` para validar.
+3. Execute o workflow e confirme:
+   - Os 226 cursos da pasta downloads são listados corretamente
+   - Arquivo `.tar.gz` criado em `shared/tmp`
+   - Arquivo enviado ao Drive na pasta configurada
+   - Registro inserido em `course_uploads`
+4. Reexecute: os itens pulados devem aparecer com status "já está no Postgres/Drive".
 
 ## Produção
 
