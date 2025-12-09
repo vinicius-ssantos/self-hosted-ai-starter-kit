@@ -1,0 +1,271 @@
+{
+  "createdAt": "2025-12-09T03:00:00.000Z",
+  "updatedAt": "2025-12-09T03:00:00.000Z",
+  "id": "courseUploadResilientWorkflow",
+  "name": "Course Upload Workflow (Resilient)",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": [
+          {
+            "hour": "={{ $env.CRON_SCHEDULE_HOUR || 3 }}",
+            "minutes": "={{ $env.CRON_SCHEDULE_MINUTE || 0 }}"
+          }
+        ]
+      },
+      "id": "manual-trigger-1",
+      "name": "Daily Cron",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {},
+      "id": "manual-trigger-2",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 460]
+    },
+    {
+      "parameters": {
+        "command": "ls -1 /data/shared/cursos"
+      },
+      "id": "list-courses-1",
+      "name": "List Courses",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nif (!items || items.length === 0) {\n  return [];\n}\n\nconst stdout = (items[0].json.stdout || '').trim();\nif (!stdout) {\n  return [];\n}\n\nconst courses = stdout.split('\\n')\n  .map(line => line.trim())\n  .filter(Boolean)\n  .map(course => ({ json: { courseName: course } }));\n\nreturn courses;"
+      },
+      "id": "process-list-1",
+      "name": "Process Course List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const courses = $input.all();\nconsole.log(`📂 CURSOS LOCAIS ENCONTRADOS: ${courses.length}`);\ncourses.slice(0, 5).forEach((c, i) => {\n  console.log(`  ${i+1}. ${c.json.courseName}`);\n});\nif (courses.length > 5) {\n  console.log(`  ... e mais ${courses.length - 5} cursos`);\n}\nreturn courses;"
+      },
+      "id": "log-local",
+      "name": "📊 Log: Cursos Locais",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT course_name FROM course_uploads;"
+      },
+      "id": "check-db",
+      "name": "Check Database",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1120, 300],
+      "credentials": {
+        "postgres": {
+          "id": "DhjxfMqZxDAlFoK1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const dbRecords = $('Check Database').all();\nconst uploadedCourses = dbRecords.map(record => record.json.course_name);\nconst localCourses = $('📊 Log: Cursos Locais').all();\nconst missingCourses = localCourses.filter(course => {\n  return !uploadedCourses.includes(course.json.courseName);\n});\n\nconsole.log(`\\n🎯 VERIFICAÇÃO PELO BANCO DE DADOS:`);\nconsole.log(`   ✅ Já enviados: ${uploadedCourses.length} cursos`);\nconsole.log(`   📦 Precisam upload: ${missingCourses.length} cursos`);\n\nreturn missingCourses.map(course => ({\n  json: {\n    courseName: course.json.courseName,\n    status: 'needs_upload',\n    attempt: 0\n  }\n}));"
+      },
+      "id": "filter-missing",
+      "name": "Filter Missing Courses",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const missing = $input.all();\nconsole.log(`\\n📋 Cursos que serão processados: ${missing.length}`);\nmissing.slice(0, 10).forEach((c, i) => {\n  console.log(`   ${i+1}. ${c.json.courseName}`);\n});\nif (missing.length > 10) {\n  console.log(`   ... e mais ${missing.length - 10} cursos`);\n}\nreturn missing;"
+      },
+      "id": "log-missing",
+      "name": "📊 Log: Cursos Faltando",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "command": "=COURSE=\"{{ $json.courseName }}\"\nARCHIVE=\"/data/shared/tmp/${COURSE}.tar.gz\"\nSRC=\"/data/shared/cursos/${COURSE}\"\nmkdir -p /data/shared/tmp\nrm -f \"$ARCHIVE\"\nif [ ! -d \"$SRC\" ]; then\n  >&2 echo \"Curso não encontrado: $SRC\"\n  exit 1\nfi\n>&2 echo \"📦 Comprimindo: $COURSE\"\ntar -czf \"$ARCHIVE\" -C \"/data/shared/cursos\" \"$COURSE\"\nSIZE=$(stat -f%z \"$ARCHIVE\" 2>/dev/null || stat -c%s \"$ARCHIVE\")\n>&2 echo \"✅ Arquivo criado: $(echo $SIZE | awk '{print $1/1024/1024 \"MB\"}')\"\nprintf \"$ARCHIVE\""
+      },
+      "id": "create-archive-1",
+      "name": "Create Archive",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1780, 300],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "filePath": "={{ $json.stdout.trim() }}"
+      },
+      "id": "read-file-1",
+      "name": "Read Archive File",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [2000, 300]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "upload",
+        "binaryPropertyName": "data",
+        "additionalFields": {
+          "parentId": "={{ $env[\"GOOGLE_DRIVE_COURSES_FOLDER_ID\"] }}",
+          "fileName": "={{ $json.courseName }}.tar.gz"
+        }
+      },
+      "id": "upload-drive-1",
+      "name": "Upload to Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [2220, 300],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Ovw6MjRTGF7piTjp",
+          "name": "Google Drive account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 10000,
+      "continueOnFail": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.id }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "check-success",
+      "name": "Upload Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2440, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first();\nconst courseName = result.json.courseName || 'unknown';\nconst fileId = result.json.id || 'no-id';\nconst fileName = result.json.name || result.json.courseName + '.tar.gz';\n\nconsole.log(`\\n✅ UPLOAD CONCLUÍDO:`);\nconsole.log(`   📦 Curso: ${courseName}`);\nconsole.log(`   📄 Arquivo: ${fileName}`);\nconsole.log(`   🆔 Drive ID: ${fileId}`);\n\nreturn [$input.first()];"
+      },
+      "id": "log-upload-success",
+      "name": "📊 Log: Upload OK",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2660, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const error = $input.first();\nconst courseName = error.json.courseName || 'unknown';\nconst errorMsg = error.json.error || 'Unknown error';\n\nconsole.log(`\\n❌ FALHA NO UPLOAD:`);\nconsole.log(`   📦 Curso: ${courseName}`);\nconsole.log(`   ⚠️ Erro: ${errorMsg}`);\nconsole.log(`   🔄 Será tentado novamente na próxima execução`);\n\nreturn [];"
+      },
+      "id": "log-upload-fail",
+      "name": "📊 Log: Upload Falhou",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2660, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO course_uploads (course_name, drive_file_id, uploaded_at)\nVALUES ('{{ $json.courseName }}', '{{ $json.id }}', NOW())\nON CONFLICT (course_name) DO UPDATE \nSET drive_file_id = EXCLUDED.drive_file_id, uploaded_at = NOW();"
+      },
+      "id": "register-db-1",
+      "name": "Register in Database",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2880, 200],
+      "credentials": {
+        "postgres": {
+          "id": "DhjxfMqZxDAlFoK1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "rm -f \"{{$node[\"Create Archive\"].json[\"stdout\"].trim()}}\""
+      },
+      "id": "cleanup-archive-1",
+      "name": "Cleanup Archive",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [3100, 200]
+    }
+  ],
+  "connections": {
+    "Daily Cron": {
+      "main": [[{"node": "List Courses", "type": "main", "index": 0}]]
+    },
+    "Manual Trigger": {
+      "main": [[{"node": "List Courses", "type": "main", "index": 0}]]
+    },
+    "List Courses": {
+      "main": [[{"node": "Process Course List", "type": "main", "index": 0}]]
+    },
+    "Process Course List": {
+      "main": [[{"node": "📊 Log: Cursos Locais", "type": "main", "index": 0}]]
+    },
+    "📊 Log: Cursos Locais": {
+      "main": [[{"node": "Check Database", "type": "main", "index": 0}]]
+    },
+    "Check Database": {
+      "main": [[{"node": "Filter Missing Courses", "type": "main", "index": 0}]]
+    },
+    "Filter Missing Courses": {
+      "main": [[{"node": "📊 Log: Cursos Faltando", "type": "main", "index": 0}]]
+    },
+    "📊 Log: Cursos Faltando": {
+      "main": [[{"node": "Create Archive", "type": "main", "index": 0}]]
+    },
+    "Create Archive": {
+      "main": [[{"node": "Read Archive File", "type": "main", "index": 0}]]
+    },
+    "Read Archive File": {
+      "main": [[{"node": "Upload to Drive", "type": "main", "index": 0}]]
+    },
+    "Upload to Drive": {
+      "main": [[{"node": "Upload Success?", "type": "main", "index": 0}]]
+    },
+    "Upload Success?": {
+      "main": [
+        [{"node": "📊 Log: Upload OK", "type": "main", "index": 0}],
+        [{"node": "📊 Log: Upload Falhou", "type": "main", "index": 0}]
+      ]
+    },
+    "📊 Log: Upload OK": {
+      "main": [[{"node": "Register in Database", "type": "main", "index": 0}]]
+    },
+    "Register in Database": {
+      "main": [[{"node": "Cleanup Archive", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "pinData": {},
+  "versionId": "course-upload-resilient-v1",
+  "triggerCount": 0,
+  "tags": []
+}

@@ -27,6 +27,10 @@ x-n8n: &service-n8n
     - GOOGLE_DRIVE_COURSES_FOLDER_ID
     - CRON_SCHEDULE_HOUR
     - CRON_SCHEDULE_MINUTE
+    - NODE_TLS_REJECT_UNAUTHORIZED=0
+    - N8N_WORKFLOW_TIMEOUT
+    - EXECUTIONS_TIMEOUT
+    - EXECUTIONS_TIMEOUT_MAX
   env_file:
     - path: .env
       required: true

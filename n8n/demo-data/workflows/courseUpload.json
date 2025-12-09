@@ -152,7 +152,8 @@
         "additionalFields": {
           "parentId": "={{ $env[\"GOOGLE_DRIVE_COURSES_FOLDER_ID\"] }}",
           "fileName": "={{ $json.courseName }}.tar.gz"
-        }
+        },
+        "resource": "file"
       },
       "id": "upload-drive-1",
       "name": "Upload to Drive",
@@ -167,7 +168,11 @@
           "id": "Ovw6MjRTGF7piTjp",
           "name": "Google Drive account"
         }
-      }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 10000,
+      "continueOnFail": false
     },
     {
       "parameters": {

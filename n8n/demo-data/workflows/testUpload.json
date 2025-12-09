@@ -1,0 +1,165 @@
+{
+  "createdAt": "2025-12-09T00:00:00.000Z",
+  "updatedAt": "2025-12-09T00:00:00.000Z",
+  "id": "testUploadWorkflow",
+  "name": "Test Upload to Google Drive",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "ls -1 /data/shared/tmp/*.tar.gz | head -1"
+      },
+      "id": "find-tarball",
+      "name": "Find First Tarball",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nif (!items || items.length === 0) {\n  throw new Error('No items received');\n}\n\nconst filePath = (items[0].json.stdout || '').trim();\nif (!filePath) {\n  throw new Error('No tar.gz file found in /data/shared/tmp');\n}\n\nconst fileName = filePath.split('/').pop().replace('.tar.gz', '');\n\nconsole.log(`📦 Arquivo encontrado: ${filePath}`);\nconsole.log(`📝 Nome do curso: ${fileName}`);\n\nreturn [{\n  json: {\n    filePath: filePath,\n    courseName: fileName\n  }\n}];"
+      },
+      "id": "process-path",
+      "name": "Process File Path",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "filePath": "={{ $json.filePath }}"
+      },
+      "id": "read-file",
+      "name": "Read Tarball",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "upload",
+        "binaryPropertyName": "data",
+        "additionalFields": {
+          "parentId": "={{ $env[\"GOOGLE_DRIVE_COURSES_FOLDER_ID\"] }}",
+          "fileName": "={{ $json.courseName }}.tar.gz"
+        }
+      },
+      "id": "upload-drive",
+      "name": "Upload to Google Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1120,
+        300
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Ovw6MjRTGF7piTjp",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first();\nconst courseName = result.json.courseName || 'unknown';\nconst fileId = result.json.id || 'no-id';\nconst fileName = result.json.name || 'no-name';\nconst mimeType = result.json.mimeType || 'unknown';\n\nconsole.log(`\\n✅ UPLOAD REALIZADO COM SUCESSO!`);\nconsole.log(`   📦 Curso: ${courseName}`);\nconsole.log(`   📄 Arquivo: ${fileName}`);\nconsole.log(`   🆔 Drive ID: ${fileId}`);\nconsole.log(`   📋 MIME Type: ${mimeType}`);\nconsole.log(`\\n🔗 Link: https://drive.google.com/file/d/${fileId}/view`);\n\nreturn [$input.first()];"
+      },
+      "id": "log-success",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Find First Tarball",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find First Tarball": {
+      "main": [
+        [
+          {
+            "node": "Process File Path",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process File Path": {
+      "main": [
+        [
+          {
+            "node": "Read Tarball",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Tarball": {
+      "main": [
+        [
+          {
+            "node": "Upload to Google Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to Google Drive": {
+      "main": [
+        [
+          {
+            "node": "Log Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "pinData": {},
+  "versionId": "test-upload-v1",
+  "triggerCount": 0,
+  "tags": []
+}

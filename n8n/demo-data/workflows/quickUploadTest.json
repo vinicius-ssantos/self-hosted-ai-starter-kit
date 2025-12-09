@@ -1,0 +1,77 @@
+{
+  "createdAt": "2025-12-09T02:00:00.000Z",
+  "updatedAt": "2025-12-09T02:00:00.000Z",
+  "id": "quickUploadTestWorkflow",
+  "name": "Quick Upload Test",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "filePath": "/data/shared/tmp/teste_upload.txt"
+      },
+      "id": "read-file",
+      "name": "Read Test File",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "upload",
+        "binaryPropertyName": "data",
+        "additionalFields": {
+          "parentId": "={{ $env[\"GOOGLE_DRIVE_COURSES_FOLDER_ID\"] }}",
+          "fileName": "teste_upload_{{ $now.format('yyyy-MM-dd_HH-mm-ss') }}.txt"
+        }
+      },
+      "id": "upload-drive",
+      "name": "Upload to Google Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [680, 300],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Ovw6MjRTGF7piTjp",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first();\nconst fileId = result.json.id;\nconst fileName = result.json.name;\nconst mimeType = result.json.mimeType;\n\nconsole.log('\\n🎉 UPLOAD REALIZADO COM SUCESSO!');\nconsole.log(`   📄 Arquivo: ${fileName}`);\nconsole.log(`   🆔 Drive ID: ${fileId}`);\nconsole.log(`   📋 MIME Type: ${mimeType}`);\nconsole.log(`\\n🔗 Link: https://drive.google.com/file/d/${fileId}/view`);\n\nreturn [{\n  json: {\n    success: true,\n    fileName: fileName,\n    fileId: fileId,\n    url: `https://drive.google.com/file/d/${fileId}/view`\n  }\n}];"
+      },
+      "id": "log-success",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{"node": "Read Test File", "type": "main", "index": 0}]]
+    },
+    "Read Test File": {
+      "main": [[{"node": "Upload to Google Drive", "type": "main", "index": 0}]]
+    },
+    "Upload to Google Drive": {
+      "main": [[{"node": "Log Success", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {"executionOrder": "v1"},
+  "staticData": null,
+  "meta": {"templateCredsSetupCompleted": false},
+  "pinData": {},
+  "versionId": "quick-upload-v1",
+  "triggerCount": 0,
+  "tags": []
+}
