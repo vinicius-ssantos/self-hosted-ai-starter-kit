@@ -6,10 +6,17 @@
   "active": false,
   "nodes": [
     {
-      "parameters": {},
+      "parameters": {
+        "triggerTimes": [
+          {
+            "hour": 3,
+            "minutes": 0
+          }
+        ]
+      },
       "id": "manual-trigger-1",
-      "name": "Manual Trigger",
-      "type": "n8n-nodes-base.manualTrigger",
+      "name": "Daily Cron",
+      "type": "n8n-nodes-base.cron",
       "typeVersion": 1,
       "position": [240, 300]
     },
@@ -25,13 +32,71 @@
     },
     {
       "parameters": {
-        "jsCode": "const stdout = ($input.first().json.stdout || '').trim();\nif (!stdout) {\n  return [];\n}\n\nconst courses = stdout.split('\\n')\n  .map(line => line.trim())\n  .filter(Boolean);\n\n// Apenas primeiros 3 cursos para teste\nreturn courses.slice(0, 3).map(course => ({ json: { courseName: course } }));"
+        "jsCode": "const stdout = ($input.first().json.stdout || '').trim();\nif (!stdout) {\n  return [];\n}\n\nreturn stdout.split('\\n')\n  .map(line => line.trim())\n  .filter(Boolean)\n  .map(course => ({ json: { courseName: course } }));"
       },
       "id": "process-list-1",
       "name": "Process Course List",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "returnAll": true,
+        "filters": {
+          "query": "name = '{{$json[\"courseName\"]}}.tar.gz' and '{{$env[\"GOOGLE_DRIVE_COURSES_FOLDER_ID\"]}}' in parents and trashed = false"
+        }
+      },
+      "id": "check-drive-1",
+      "name": "Check Existing on Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [900, 300],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Ovw6MjRTGF7piTjp",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "booleans": [
+            {
+              "value1": "={{$json[\"files\"] && $json[\"files\"].length > 0}}"
+            }
+          ]
+        }
+      },
+      "id": "if-already-exists-1",
+      "name": "IF Already on Drive",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "courseName",
+              "value": "={{$item($itemIndex).$node[\"Process Course List\"].json[\"courseName\"]}}"
+            },
+            {
+              "name": "status",
+              "value": "Skipped (already on Drive)"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-skip-status-1",
+      "name": "Set Skip Status",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1340, 140]
     },
     {
       "parameters": {
@@ -44,7 +109,7 @@
       "name": "Create Archive",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
-      "position": [900, 300]
+      "position": [1360, 300]
     },
     {
       "parameters": {
@@ -55,14 +120,14 @@
       "name": "Read Archive File",
       "type": "n8n-nodes-base.readBinaryFile",
       "typeVersion": 1,
-      "position": [1120, 300]
+      "position": [1580, 300]
     },
     {
       "parameters": {
         "operation": "upload",
         "binaryPropertyName": "data",
         "additionalFields": {
-          "parentId": "={{ $env.GOOGLE_DRIVE_COURSES_FOLDER_ID }}",
+          "parentId": "={{ $env[\"GOOGLE_DRIVE_COURSES_FOLDER_ID\"] }}",
           "fileName": "={{ $json.courseName }}.tar.gz"
         }
       },
@@ -70,10 +135,10 @@
       "name": "Upload to Drive",
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
-      "position": [1340, 300],
+      "position": [1800, 300],
       "credentials": {
         "googleDriveOAuth2Api": {
-          "id": "nmK027dI2ABsiwge",
+          "id": "Ovw6MjRTGF7piTjp",
           "name": "Google Drive account"
         }
       }
@@ -88,24 +153,51 @@
       "name": "Register in Database",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1560, 300],
+      "position": [2020, 300],
       "credentials": {
         "postgres": {
           "id": "DhjxfMqZxDAlFoK1",
           "name": "Postgres account"
         }
       }
+    },
+    {
+      "parameters": {
+        "command": "rm -f \"{{$node[\"Create Archive\"].json[\"stdout\"].trim()}}\"",
+        "options": {
+          "shell": "/bin/bash",
+          "continueOnFail": true
+        }
+      },
+      "id": "cleanup-archive-1",
+      "name": "Cleanup Archive",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [2240, 300]
     }
   ],
   "connections": {
-    "Manual Trigger": {
+    "Daily Cron": {
       "main": [[{"node": "List Courses", "type": "main", "index": 0}]]
     },
     "List Courses": {
       "main": [[{"node": "Process Course List", "type": "main", "index": 0}]]
     },
     "Process Course List": {
-      "main": [[{"node": "Create Archive", "type": "main", "index": 0}]]
+      "main": [[{"node": "Check Existing on Drive", "type": "main", "index": 0}]]
+    },
+    "Check Existing on Drive": {
+      "main": [[{"node": "IF Already on Drive", "type": "main", "index": 0}]]
+    },
+    "IF Already on Drive": {
+      "main": [
+        [
+          {"node": "Set Skip Status", "type": "main", "index": 0}
+        ],
+        [
+          {"node": "Create Archive", "type": "main", "index": 0}
+        ]
+      ]
     },
     "Create Archive": {
       "main": [[{"node": "Read Archive File", "type": "main", "index": 0}]]
@@ -115,6 +207,9 @@
     },
     "Upload to Drive": {
       "main": [[{"node": "Register in Database", "type": "main", "index": 0}]]
+    },
+    "Register in Database": {
+      "main": [[{"node": "Cleanup Archive", "type": "main", "index": 0}]]
     }
   },
   "settings": {
