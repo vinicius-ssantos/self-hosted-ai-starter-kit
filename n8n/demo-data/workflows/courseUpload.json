@@ -18,7 +18,10 @@
       "name": "Daily Cron",
       "type": "n8n-nodes-base.cron",
       "typeVersion": 1,
-      "position": [240, 300]
+      "position": [
+        240,
+        300
+      ]
     },
     {
       "parameters": {},
@@ -26,7 +29,10 @@
       "name": "Manual Trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [240, 460]
+      "position": [
+        240,
+        460
+      ]
     },
     {
       "parameters": {
@@ -36,7 +42,10 @@
       "name": "List Courses",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
-      "position": [460, 300]
+      "position": [
+        460,
+        300
+      ]
     },
     {
       "parameters": {
@@ -46,66 +55,69 @@
       "name": "Process Course List",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [680, 300]
+      "position": [
+        680,
+        300
+      ]
     },
     {
       "parameters": {
-        "operation": "list",
-        "returnAll": true,
-        "options": {
-          "queryString": "name = '{{$json[\"courseName\"]}}.tar.gz' and '{{$env[\"GOOGLE_DRIVE_COURSES_FOLDER_ID\"]}}' in parents and trashed = false"
-        }
+        "jsCode": "const courses = $input.all();\nconsole.log(`📂 CURSOS LOCAIS ENCONTRADOS: ${courses.length}`);\ncourses.slice(0, 5).forEach((c, i) => {\n  console.log(`  ${i+1}. ${c.json.courseName}`);\n});\nif (courses.length > 5) {\n  console.log(`  ... e mais ${courses.length - 5} cursos`);\n}\nreturn courses;"
       },
-      "id": "check-drive-1",
-      "name": "Check Existing on Drive",
-      "type": "n8n-nodes-base.googleDrive",
-      "typeVersion": 3,
-      "position": [900, 300],
+      "id": "log-local",
+      "name": "📊 Log: Cursos Locais",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        710,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT course_name FROM course_uploads;"
+      },
+      "id": "check-db",
+      "name": "Check Database",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        710,
+        300
+      ],
       "credentials": {
-        "googleDriveOAuth2Api": {
-          "id": "Ovw6MjRTGF7piTjp",
-          "name": "Google Drive account"
+        "postgres": {
+          "id": "DhjxfMqZxDAlFoK1",
+          "name": "Postgres account"
         }
       }
     },
     {
       "parameters": {
-        "conditions": {
-          "number": [
-            {
-              "value1": "={{$json[\"files\"] ? $json[\"files\"].length : 0}}",
-              "operation": "larger",
-              "value2": 0
-            }
-          ]
-        }
+        "jsCode": "// Get courses already in database\nconst dbRecords = $('Check Database').all();\nconst uploadedCourses = dbRecords.map(record => record.json.course_name);\n\n// Get all local courses\nconst localCourses = $('📊 Log: Cursos Locais').all();\n\n// Filter courses that are NOT in database\nconst missingCourses = localCourses.filter(course => {\n  return !uploadedCourses.includes(course.json.courseName);\n});\n\nconsole.log(`\\n🎯 VERIFICAÇÃO PELO BANCO DE DADOS:`);\nconsole.log(`   ✅ Já enviados (no banco): ${uploadedCourses.length} cursos`);\nconsole.log(`   📦 Precisam upload: ${missingCourses.length} cursos`);\n\n// Return only missing courses\nreturn missingCourses.map(course => ({\n  json: {\n    courseName: course.json.courseName,\n    status: 'needs_upload'\n  }\n}));"
       },
-      "id": "if-already-exists-1",
-      "name": "IF Already on Drive",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [1120, 300]
+      "id": "filter-missing",
+      "name": "Filter Missing Courses",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        300
+      ]
     },
     {
       "parameters": {
-        "values": {
-          "string": [
-            {
-              "name": "courseName",
-              "value": "={{$item($itemIndex).$node[\"Process Course List\"].json[\"courseName\"]}}"
-            },
-            {
-              "name": "status",
-              "value": "Skipped (already on Drive)"
-            }
-          ]
-        }
+        "jsCode": "const missing = $input.all();\nconst dbRecords = $('Check Database').all();\n\nconsole.log(`\\n🎯 RESUMO DA VERIFICAÇÃO:`);\nconsole.log(`   ✅ Já no banco: ${dbRecords.length} cursos`);\nconsole.log(`   📦 Precisam upload: ${missing.length} cursos`);\nconsole.log(`\\n📋 Cursos que serão processados:`);\nmissing.slice(0, 10).forEach((c, i) => {\n  console.log(`   ${i+1}. ${c.json.courseName}`);\n});\nif (missing.length > 10) {\n  console.log(`   ... e mais ${missing.length - 10} cursos`);\n}\nreturn missing;"
       },
-      "id": "set-skip-status-1",
-      "name": "Set Skip Status",
-      "type": "n8n-nodes-base.set",
+      "id": "log-missing",
+      "name": "📊 Log: Cursos Faltando",
+      "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1340, 140]
+      "position": [
+        1150,
+        300
+      ]
     },
     {
       "parameters": {
@@ -115,7 +127,10 @@
       "name": "Create Archive",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
-      "position": [1360, 300]
+      "position": [
+        1360,
+        300
+      ]
     },
     {
       "parameters": {
@@ -125,7 +140,10 @@
       "name": "Read Archive File",
       "type": "n8n-nodes-base.readBinaryFile",
       "typeVersion": 1,
-      "position": [1580, 300]
+      "position": [
+        1580,
+        300
+      ]
     },
     {
       "parameters": {
@@ -140,13 +158,29 @@
       "name": "Upload to Drive",
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
-      "position": [1800, 300],
+      "position": [
+        1800,
+        300
+      ],
       "credentials": {
         "googleDriveOAuth2Api": {
           "id": "Ovw6MjRTGF7piTjp",
           "name": "Google Drive account"
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first();\nconst courseName = result.json.courseName || 'unknown';\nconst fileId = result.json.id || 'no-id';\nconst fileName = result.json.name || result.json.courseName + '.tar.gz';\n\nconsole.log(`\\n✅ UPLOAD CONCLUÍDO:`);\nconsole.log(`   📦 Curso: ${courseName}`);\nconsole.log(`   📄 Arquivo: ${fileName}`);\nconsole.log(`   🆔 Drive ID: ${fileId}`);\n\nreturn [$input.first()];"
+      },
+      "id": "log-upload",
+      "name": "📊 Log: Upload Concluído",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1830,
+        300
+      ]
     },
     {
       "parameters": {
@@ -157,7 +191,10 @@
       "name": "Register in Database",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [2020, 300],
+      "position": [
+        2020,
+        300
+      ],
       "credentials": {
         "postgres": {
           "id": "DhjxfMqZxDAlFoK1",
@@ -173,46 +210,177 @@
       "name": "Cleanup Archive",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
-      "position": [2240, 300]
+      "position": [
+        2240,
+        300
+      ]
     }
   ],
   "connections": {
     "Daily Cron": {
-      "main": [[{"node": "List Courses", "type": "main", "index": 0}]]
-    },
-    "Manual Trigger": {
-      "main": [[{"node": "List Courses", "type": "main", "index": 0}]]
-    },
-    "List Courses": {
-      "main": [[{"node": "Process Course List", "type": "main", "index": 0}]]
-    },
-    "Process Course List": {
-      "main": [[{"node": "Check Existing on Drive", "type": "main", "index": 0}]]
-    },
-    "Check Existing on Drive": {
-      "main": [[{"node": "IF Already on Drive", "type": "main", "index": 0}]]
-    },
-    "IF Already on Drive": {
       "main": [
         [
-          {"node": "Set Skip Status", "type": "main", "index": 0}
-        ],
+          {
+            "node": "List Courses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
         [
-          {"node": "Create Archive", "type": "main", "index": 0}
+          {
+            "node": "List Courses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Courses": {
+      "main": [
+        [
+          {
+            "node": "Process Course List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Course List": {
+      "main": [
+        [
+          {
+            "node": "📊 Log: Cursos Locais",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Create Archive": {
-      "main": [[{"node": "Read Archive File", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Read Archive File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Read Archive File": {
-      "main": [[{"node": "Upload to Drive", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Upload to Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Upload to Drive": {
-      "main": [[{"node": "Register in Database", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "📊 Log: Upload Concluído",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Register in Database": {
-      "main": [[{"node": "Cleanup Archive", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Cleanup Archive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List All Drive Files": {
+      "main": [
+        [
+          {
+            "node": "📊 Log: Arquivos Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Missing Courses": {
+      "main": [
+        [
+          {
+            "node": "📊 Log: Cursos Faltando",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Log: Cursos Locais": {
+      "main": [
+        [
+          {
+            "node": "Check Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Log: Arquivos Drive": {
+      "main": [
+        [
+          {
+            "node": "Filter Missing Courses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Log: Cursos Faltando": {
+      "main": [
+        [
+          {
+            "node": "Create Archive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Log: Upload Concluído": {
+      "main": [
+        [
+          {
+            "node": "Register in Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Database": {
+      "main": [
+        [
+          {
+            "node": "Filter Missing Courses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
