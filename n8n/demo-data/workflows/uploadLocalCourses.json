@@ -70,7 +70,7 @@
       ],
       "credentials": {
         "googleDriveOAuth2Api": {
-          "id": "__REPLACE_WITH_GOOGLE_DRIVE_CREDENTIAL_ID__",
+          "id": "Ovw6MjRTGF7piTjp",
           "name": "Google Drive account"
         }
       }
@@ -168,7 +168,7 @@
       ],
       "credentials": {
         "googleDriveOAuth2Api": {
-          "id": "__REPLACE_WITH_GOOGLE_DRIVE_CREDENTIAL_ID__",
+          "id": "Ovw6MjRTGF7piTjp",
           "name": "Google Drive account"
         }
       }
@@ -190,7 +190,7 @@
       ],
       "credentials": {
         "postgres": {
-          "id": "__REPLACE_WITH_POSTGRES_CREDENTIAL_ID__",
+          "id": "DhjxfMqZxDAlFoK1",
           "name": "Local Postgres"
         }
       }
